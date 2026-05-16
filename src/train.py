@@ -101,6 +101,8 @@ def evaluate_model(
     return {
         "accuracy": float(accuracy_score(y_true, y_pred)),
         "macro_f1": float(f1_score(y_true, y_pred, average="macro")),
+        "y_true": y_true,
+        "y_pred": y_pred,
         "report": classification_report(
             y_true,
             y_pred,

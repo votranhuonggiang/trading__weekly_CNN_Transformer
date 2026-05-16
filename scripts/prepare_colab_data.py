@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 
 
 MAX_SHARD_BYTES = 95 * 1024 * 1024
@@ -29,6 +30,9 @@ def main() -> None:
 
     np.save(out_dir / "feature_mean.npy", arrays["feature_mean"].astype(np.float32))
     np.save(out_dir / "feature_std.npy", arrays["feature_std"].astype(np.float32))
+    metadata_path = Path("data/processed/model_dataset_metadata.parquet")
+    if metadata_path.exists():
+        pd.read_parquet(metadata_path).to_parquet(out_dir / "model_dataset_metadata.parquet", index=False)
     print(f"Prepared Colab shards in {out_dir}")
 
 
