@@ -70,3 +70,47 @@ def export_prediction_outputs(
     prediction_table.to_csv(score_path, index=False)
     build_top_k_portfolio(prediction_table, top_k=top_k).to_csv(topk_path, index=False)
     return score_path, topk_path
+
+
+def build_portfolio_performance(
+    top_k_portfolio: pd.DataFrame,
+    vnindex_comparison: pd.DataFrame | None = None,
+) -> pd.DataFrame:
+    portfolio = top_k_portfolio.copy()
+    portfolio["rebalance_date"] = pd.to_datetime(portfolio["rebalance_date"])
+    portfolio["next_week_simple_return"] = np.exp(portfolio["next_week_return"]) - 1.0
+
+    weekly = (
+        portfolio.groupby("rebalance_date", as_index=False)
+        .apply(
+            lambda g: pd.Series(
+                {
+                    "portfolio_simple_return": float(
+                        np.sum(g["portfolio_weight"] * g["next_week_simple_return"])
+                    ),
+                    "portfolio_log_return": float(np.log1p(np.sum(g["portfolio_weight"] * g["next_week_simple_return"]))),
+                    "num_holdings": int(len(g)),
+                }
+            )
+        )
+        .reset_index(drop=True)
+    )
+    weekly["portfolio_cumulative"] = (1.0 + weekly["portfolio_simple_return"]).cumprod()
+    weekly["split"] = weekly["rebalance_date"].apply(_assign_split_label)
+
+    if vnindex_comparison is not None:
+        benchmark = vnindex_comparison.copy()
+        benchmark["rebalance_date"] = pd.to_datetime(benchmark["rebalance_date"])
+        benchmark["vnindex_simple_return"] = np.exp(benchmark["vnindex_weekly_return"]) - 1.0
+        cols = ["rebalance_date", "vnindex_weekly_return", "vnindex_simple_return", "vnindex_cumulative"]
+        weekly = weekly.merge(benchmark[cols], on="rebalance_date", how="left")
+
+    return weekly.sort_values("rebalance_date").reset_index(drop=True)
+
+
+def _assign_split_label(rebalance_date: pd.Timestamp) -> str:
+    if rebalance_date <= pd.Timestamp("2021-12-31"):
+        return "train"
+    if rebalance_date <= pd.Timestamp("2023-12-31"):
+        return "validation"
+    return "test"
