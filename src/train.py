@@ -106,7 +106,7 @@ def evaluate_model(
         "report": classification_report(
             y_true,
             y_pred,
-            target_names=["StopLoss", "Timeout", "TakeProfit"],
+            target_names=["Avoid", "Hold", "Buy"],
             digits=4,
         ),
     }

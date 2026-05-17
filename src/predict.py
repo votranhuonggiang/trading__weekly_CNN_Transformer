@@ -42,10 +42,10 @@ def build_weekly_prediction_table(
         raise ValueError("Metadata rows and probability rows must match.")
 
     table = metadata.copy().reset_index(drop=True)
-    table["p_stoploss"] = probabilities[:, 0]
-    table["p_timeout"] = probabilities[:, 1]
-    table["p_takeprofit"] = probabilities[:, 2]
-    table["score"] = table["p_takeprofit"] - table["p_stoploss"]
+    table["p_avoid"] = probabilities[:, 0]
+    table["p_hold"] = probabilities[:, 1]
+    table["p_buy"] = probabilities[:, 2]
+    table["score"] = table["p_buy"] - table["p_avoid"]
     table["rank"] = table.groupby("rebalance_date")["score"].rank(method="first", ascending=False).astype(int)
     return table.sort_values(["rebalance_date", "rank", "ticker"]).reset_index(drop=True)
 

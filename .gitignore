@@ -4,6 +4,8 @@ __pycache__/
 .ipynb_checkpoints/
 checkpoints/
 outputs/models/
+outputs/predictions/
+notebooks/trading__weekly_CNN_Transformer/
 data/raw/
 data/processed/
 data/processed/model_dataset_splits.npz

@@ -115,8 +115,7 @@ def build_model_dataset(
                 "label": int(row.label),
                 "label_name": row.label_name,
                 "next_week_return": float(row.next_week_return),
-                "triple_barrier_event": row.triple_barrier_event,
-                "triple_barrier_return": float(row.triple_barrier_return),
+                "return_rank_pct": float(row.return_rank_pct),
                 "split": _assign_split(row.rebalance_date),
             }
         )

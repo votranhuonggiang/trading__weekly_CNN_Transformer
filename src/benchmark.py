@@ -50,14 +50,14 @@ def build_vnindex_comparison(
     benchmark["vnindex_cumulative"] = np.exp(benchmark["vnindex_weekly_return"].fillna(0.0).cumsum())
 
     label_perf = (
-        labels.groupby(["rebalance_date", "label_name"], as_index=False)["triple_barrier_return"]
+        labels.groupby(["rebalance_date", "label_name"], as_index=False)["next_week_return"]
         .mean()
-        .pivot(index="rebalance_date", columns="label_name", values="triple_barrier_return")
+        .pivot(index="rebalance_date", columns="label_name", values="next_week_return")
         .reset_index()
     )
 
     comparison = benchmark.merge(label_perf, on="rebalance_date", how="left")
-    label_cols = [col for col in ["StopLoss", "Timeout", "TakeProfit"] if col in comparison.columns]
+    label_cols = [col for col in ["Avoid", "Hold", "Buy"] if col in comparison.columns]
     for col in label_cols:
         comparison[f"{col}_cumulative"] = np.exp(comparison[col].fillna(0.0).cumsum())
 
@@ -93,17 +93,17 @@ def _plot_cumulative_comparison(comparison: pd.DataFrame, output_path) -> None:
     )
 
     color_map = {
-        "StopLoss_cumulative": "#b03a2e",
-        "Timeout_cumulative": "#7f8c8d",
-        "TakeProfit_cumulative": "#117a65",
+        "Avoid_cumulative": "#b03a2e",
+        "Hold_cumulative": "#7f8c8d",
+        "Buy_cumulative": "#117a65",
     }
     label_map = {
-        "StopLoss_cumulative": "StopLoss Group (look-ahead)",
-        "Timeout_cumulative": "Timeout Group (look-ahead)",
-        "TakeProfit_cumulative": "TakeProfit Group (look-ahead)",
+        "Avoid_cumulative": "Avoid Group (look-ahead)",
+        "Hold_cumulative": "Hold Group (look-ahead)",
+        "Buy_cumulative": "Buy Group (look-ahead)",
     }
 
-    for col in ["StopLoss_cumulative", "Timeout_cumulative", "TakeProfit_cumulative"]:
+    for col in ["Avoid_cumulative", "Hold_cumulative", "Buy_cumulative"]:
         if col in comparison.columns:
             ax.plot(
                 comparison["rebalance_date"],
@@ -113,7 +113,7 @@ def _plot_cumulative_comparison(comparison: pd.DataFrame, output_path) -> None:
                 color=color_map[col],
             )
 
-    ax.set_title("VNINDEX vs Triple-Barrier Label Group Performance")
+    ax.set_title("VNINDEX vs Weekly Return Label Group Performance")
     ax.set_ylabel("Cumulative Growth of 1.0")
     ax.set_xlabel("Rebalance Date")
     ax.legend()
@@ -134,16 +134,16 @@ def _plot_label_distribution(labels: pd.DataFrame, output_path) -> None:
     plt.style.use("seaborn-v0_8-whitegrid")
     fig, ax = plt.subplots(figsize=(12, 7))
 
-    order = ["StopLoss", "Timeout", "TakeProfit"]
-    data = [labels.loc[labels["label_name"] == name, "triple_barrier_return"].dropna().values for name in order]
+    order = ["Avoid", "Hold", "Buy"]
+    data = [labels.loc[labels["label_name"] == name, "next_week_return"].dropna().values for name in order]
     ax.boxplot(data, labels=order, showfliers=False, patch_artist=True)
 
     colors = ["#f5b7b1", "#d5dbdb", "#a3e4d7"]
     for patch, color in zip(ax.artists, colors):
         patch.set_facecolor(color)
 
-    ax.set_title("Triple-Barrier Return Distribution by Label")
-    ax.set_ylabel("Realized Barrier Return")
+    ax.set_title("Next-Week Return Distribution by Label")
+    ax.set_ylabel("Next-Week Log Return")
     ax.set_xlabel("Label")
     fig.tight_layout()
     fig.savefig(output_path, dpi=180)
