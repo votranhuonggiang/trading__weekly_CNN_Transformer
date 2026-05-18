@@ -21,6 +21,7 @@ class TrainingConfig:
     patience: int = 3
     checkpoint_dir: str = "checkpoints"
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
+    use_class_weights: bool = True
 
 
 def train_model(
@@ -36,7 +37,8 @@ def train_model(
 
     num_classes = int(np.max(arrays["y_train"])) + 1
     model = CNNTransformerClassifier(num_features=arrays["X_train"].shape[-1], num_classes=num_classes).to(device)
-    criterion = nn.CrossEntropyLoss()
+    class_weights = _balanced_class_weights(arrays["y_train"], num_classes).to(device) if config.use_class_weights else None
+    criterion = nn.CrossEntropyLoss(weight=class_weights)
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=config.learning_rate,
@@ -104,7 +106,13 @@ def evaluate_model(
         "macro_f1": float(f1_score(y_true, y_pred, average="macro")),
         "y_true": y_true,
         "y_pred": y_pred,
-        "report": classification_report(y_true, y_pred, target_names=["NotBuy", "Buy"], digits=4),
+        "report": classification_report(
+            y_true,
+            y_pred,
+            target_names=["NotBuy", "Buy"],
+            digits=4,
+            zero_division=0,
+        ),
     }
 
 
@@ -114,6 +122,13 @@ def _make_loader(x: np.ndarray, y: np.ndarray, batch_size: int, shuffle: bool) -
         torch.tensor(y, dtype=torch.long),
     )
     return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=0)
+
+
+def _balanced_class_weights(y: np.ndarray, num_classes: int) -> torch.Tensor:
+    counts = np.bincount(y, minlength=num_classes).astype(np.float32)
+    counts = np.maximum(counts, 1.0)
+    weights = counts.sum() / (num_classes * counts)
+    return torch.tensor(weights, dtype=torch.float32)
 
 
 def _run_epoch(
