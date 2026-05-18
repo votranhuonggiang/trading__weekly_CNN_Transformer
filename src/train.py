@@ -34,7 +34,8 @@ def train_model(
     val_loader = _make_loader(arrays["X_val"], arrays["y_val"], config.batch_size, shuffle=False)
     test_loader = _make_loader(arrays["X_test"], arrays["y_test"], config.batch_size, shuffle=False)
 
-    model = CNNTransformerClassifier(num_features=arrays["X_train"].shape[-1]).to(device)
+    num_classes = int(np.max(arrays["y_train"])) + 1
+    model = CNNTransformerClassifier(num_features=arrays["X_train"].shape[-1], num_classes=num_classes).to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.AdamW(
         model.parameters(),
@@ -103,12 +104,7 @@ def evaluate_model(
         "macro_f1": float(f1_score(y_true, y_pred, average="macro")),
         "y_true": y_true,
         "y_pred": y_pred,
-        "report": classification_report(
-            y_true,
-            y_pred,
-            target_names=["Avoid", "Hold", "Buy"],
-            digits=4,
-        ),
+        "report": classification_report(y_true, y_pred, target_names=["NotBuy", "Buy"], digits=4),
     }
 
 

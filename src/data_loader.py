@@ -49,6 +49,41 @@ def fetch_hose_universe() -> pd.DataFrame:
 
 def fetch_raw_ohlcv(start_date: str | None = None) -> pd.DataFrame:
     start_date = start_date or settings.start_date
+    end_date = _get_raw_eod_end_date()
+    chunks: list[pd.DataFrame] = []
+
+    for chunk_start, chunk_end in _yearly_ranges(start_date, end_date):
+        chunk = _fetch_raw_ohlcv_chunk(chunk_start, chunk_end)
+        if not chunk.empty:
+            chunks.append(chunk)
+
+    if not chunks:
+        return pd.DataFrame(columns=["timestamp", "symbol", "open", "high", "low", "close", "volume"])
+
+    return pd.concat(chunks, ignore_index=True)
+
+
+def _get_raw_eod_end_date() -> str:
+    df = query_questdb("SELECT max(timestamp) AS max_ts FROM raw_eod WHERE length(symbol) = 3")
+    if df.empty or pd.isna(df.loc[0, "max_ts"]):
+        raise RuntimeError("raw_eod has no rows for 3-character stock symbols.")
+    max_ts = pd.to_datetime(df.loc[0, "max_ts"], utc=True).tz_localize(None)
+    return (max_ts + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+
+
+def _yearly_ranges(start_date: str, end_date: str) -> list[tuple[str, str]]:
+    start = pd.Timestamp(start_date).normalize()
+    end = pd.Timestamp(end_date).normalize()
+    ranges: list[tuple[str, str]] = []
+    cursor = start
+    while cursor < end:
+        next_cursor = min(pd.Timestamp(year=cursor.year + 1, month=1, day=1), end)
+        ranges.append((cursor.strftime("%Y-%m-%d"), next_cursor.strftime("%Y-%m-%d")))
+        cursor = next_cursor
+    return ranges
+
+
+def _fetch_raw_ohlcv_chunk(start_date: str, end_date: str) -> pd.DataFrame:
     sql = f"""
     SELECT
         timestamp,
@@ -60,7 +95,9 @@ def fetch_raw_ohlcv(start_date: str | None = None) -> pd.DataFrame:
         volume
     FROM raw_eod
     WHERE timestamp >= '{start_date}'
+      AND timestamp < '{end_date}'
       AND length(symbol) = 3
+    ORDER BY timestamp, symbol
     """
     return query_questdb(sql)
 

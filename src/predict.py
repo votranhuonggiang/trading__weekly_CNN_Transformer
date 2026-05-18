@@ -40,12 +40,13 @@ def build_weekly_prediction_table(
 ) -> pd.DataFrame:
     if len(metadata) != len(probabilities):
         raise ValueError("Metadata rows and probability rows must match.")
+    if probabilities.shape[1] != 2:
+        raise ValueError(f"Expected binary class probabilities with shape [n, 2], got {probabilities.shape}.")
 
     table = metadata.copy().reset_index(drop=True)
-    table["p_avoid"] = probabilities[:, 0]
-    table["p_hold"] = probabilities[:, 1]
-    table["p_buy"] = probabilities[:, 2]
-    table["score"] = table["p_buy"] - table["p_avoid"]
+    table["p_notbuy"] = probabilities[:, 0]
+    table["p_buy"] = probabilities[:, 1]
+    table["score"] = table["p_buy"]
     table["rank"] = table.groupby("rebalance_date")["score"].rank(method="first", ascending=False).astype(int)
     return table.sort_values(["rebalance_date", "rank", "ticker"]).reset_index(drop=True)
 
@@ -75,26 +76,41 @@ def export_prediction_outputs(
 def build_portfolio_performance(
     top_k_portfolio: pd.DataFrame,
     vnindex_comparison: pd.DataFrame | None = None,
+    fee_rate: float = 0.002,
 ) -> pd.DataFrame:
     portfolio = top_k_portfolio.copy()
     portfolio["rebalance_date"] = pd.to_datetime(portfolio["rebalance_date"])
     portfolio["next_week_simple_return"] = np.exp(portfolio["next_week_return"]) - 1.0
 
-    weekly = (
-        portfolio.groupby("rebalance_date", as_index=False)
-        .apply(
-            lambda g: pd.Series(
-                {
-                    "portfolio_simple_return": float(
-                        np.sum(g["portfolio_weight"] * g["next_week_simple_return"])
-                    ),
-                    "portfolio_log_return": float(np.log1p(np.sum(g["portfolio_weight"] * g["next_week_simple_return"]))),
-                    "num_holdings": int(len(g)),
-                }
-            )
+    weekly_rows: list[dict[str, float | int | pd.Timestamp]] = []
+    previous_weights: dict[str, float] = {}
+
+    for rebalance_date, group in portfolio.groupby("rebalance_date", sort=True):
+        current_weights = dict(zip(group["ticker"], group["portfolio_weight"]))
+        gross_simple_return = float(np.sum(group["portfolio_weight"] * group["next_week_simple_return"]))
+
+        all_tickers = set(previous_weights) | set(current_weights)
+        turnover = 0.5 * sum(abs(current_weights.get(t, 0.0) - previous_weights.get(t, 0.0)) for t in all_tickers)
+        if not previous_weights:
+            turnover = 1.0
+
+        trading_cost = fee_rate * turnover
+        net_simple_return = (1.0 - trading_cost) * (1.0 + gross_simple_return) - 1.0
+
+        weekly_rows.append(
+            {
+                "rebalance_date": rebalance_date,
+                "portfolio_gross_simple_return": gross_simple_return,
+                "portfolio_turnover": float(turnover),
+                "trading_cost": float(trading_cost),
+                "portfolio_simple_return": float(net_simple_return),
+                "portfolio_log_return": float(np.log1p(net_simple_return)),
+                "num_holdings": int(len(group)),
+            }
         )
-        .reset_index(drop=True)
-    )
+        previous_weights = current_weights
+
+    weekly = pd.DataFrame(weekly_rows)
     weekly["portfolio_cumulative"] = (1.0 + weekly["portfolio_simple_return"]).cumprod()
     weekly["split"] = weekly["rebalance_date"].apply(_assign_split_label)
 
