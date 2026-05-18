@@ -17,9 +17,6 @@ class Settings:
     questdb_username: str | None = os.environ.get("QUESTDB_USERNAME")
     questdb_password: str | None = os.environ.get("QUESTDB_PASSWORD")
     start_date: str = os.environ.get("PROJECT_START_DATE", "2016-01-01")
-    triple_barrier_take_profit_pct: float = float(os.environ.get("TB_TAKE_PROFIT_PCT", "0.05"))
-    triple_barrier_stop_loss_pct: float = float(os.environ.get("TB_STOP_LOSS_PCT", "0.05"))
-    triple_barrier_ambiguous_policy: str = os.environ.get("TB_AMBIGUOUS_POLICY", "neutral")
 
     @property
     def data_raw_dir(self) -> Path:

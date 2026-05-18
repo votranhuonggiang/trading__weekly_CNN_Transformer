@@ -1,6 +1,6 @@
 # trading__weekly_CNN_Transformer
 
-Weekly HOSE stock-selection research pipeline using QuestDB OHLCV data, engineered features, triple-barrier labels, and a CNN-Transformer training stack.
+Weekly HOSE stock-selection research pipeline using QuestDB OHLCV data, engineered features, weekly return labels, and a CNN-Transformer training stack.
 
 ## Included for Colab
 
@@ -24,7 +24,7 @@ Local data preparation requires access to QuestDB because raw market data is not
 
 - OHLCV ingestion
 - daily feature engineering
-- weekly triple-barrier labeling
+- weekly cross-sectional return labeling
 - model dataset construction
 - VNINDEX benchmark diagnostics
 
