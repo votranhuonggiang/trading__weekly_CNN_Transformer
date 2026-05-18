@@ -48,6 +48,14 @@ def build_weekly_prediction_table(
     table["p_hold"] = probabilities[:, 1]
     table["p_buy"] = probabilities[:, 2]
     table["score"] = table["p_buy"] - table["p_avoid"]
+    table["predicted_label"] = np.select(
+        [
+            (table["p_avoid"] >= table["p_hold"]) & (table["p_avoid"] >= table["p_buy"]),
+            (table["p_hold"] >= table["p_avoid"]) & (table["p_hold"] >= table["p_buy"]),
+        ],
+        ["Avoid", "Hold"],
+        default="Buy",
+    )
     table["rank"] = table.groupby("rebalance_date")["score"].rank(method="first", ascending=False).astype(int)
     return table.sort_values(["rebalance_date", "rank", "ticker"]).reset_index(drop=True)
 
@@ -58,19 +66,35 @@ def build_top_k_portfolio(prediction_table: pd.DataFrame, top_k: int = 5) -> pd.
     return top.sort_values(["rebalance_date", "rank", "ticker"]).reset_index(drop=True)
 
 
+def build_predicted_buy_portfolio(prediction_table: pd.DataFrame, top_k: int = 5) -> pd.DataFrame:
+    candidates = prediction_table[prediction_table["predicted_label"] == "Buy"].copy()
+    candidates["buy_rank"] = candidates.groupby("rebalance_date")["score"].rank(
+        method="first",
+        ascending=False,
+    ).astype(int)
+    top = candidates[candidates["buy_rank"] <= top_k].copy()
+    top["portfolio_weight"] = 1.0 / top_k
+    return top.sort_values(["rebalance_date", "buy_rank", "ticker"]).reset_index(drop=True)
+
+
 def export_prediction_outputs(
     prediction_table: pd.DataFrame,
     output_dir: str | Path,
     top_k: int = 5,
+    buy_only: bool = False,
 ) -> tuple[Path, Path]:
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     score_path = output_dir / "weekly_prediction_scores.csv"
-    topk_path = output_dir / f"weekly_top_{top_k}_portfolio.csv"
+    suffix = f"weekly_top_{top_k}_buy_only_portfolio.csv" if buy_only else f"weekly_top_{top_k}_portfolio.csv"
+    topk_path = output_dir / suffix
 
     prediction_table.to_csv(score_path, index=False)
-    build_top_k_portfolio(prediction_table, top_k=top_k).to_csv(topk_path, index=False)
+    if buy_only:
+        build_predicted_buy_portfolio(prediction_table, top_k=top_k).to_csv(topk_path, index=False)
+    else:
+        build_top_k_portfolio(prediction_table, top_k=top_k).to_csv(topk_path, index=False)
     return score_path, topk_path
 
 
@@ -89,11 +113,12 @@ def build_portfolio_performance(
     for rebalance_date, group in portfolio.groupby("rebalance_date", sort=True):
         current_weights = dict(zip(group["ticker"], group["portfolio_weight"]))
         gross_simple_return = float(np.sum(group["portfolio_weight"] * group["next_week_simple_return"]))
+        invested_weight = float(group["portfolio_weight"].sum())
 
         all_tickers = set(previous_weights) | set(current_weights)
         turnover = 0.5 * sum(abs(current_weights.get(t, 0.0) - previous_weights.get(t, 0.0)) for t in all_tickers)
         if not previous_weights:
-            turnover = 1.0
+            turnover = invested_weight
 
         trading_cost = fee_rate * turnover
         net_simple_return = (1.0 - trading_cost) * (1.0 + gross_simple_return) - 1.0
@@ -102,6 +127,8 @@ def build_portfolio_performance(
             {
                 "rebalance_date": rebalance_date,
                 "portfolio_gross_simple_return": gross_simple_return,
+                "invested_weight": invested_weight,
+                "cash_weight": float(max(0.0, 1.0 - invested_weight)),
                 "portfolio_turnover": float(turnover),
                 "trading_cost": float(trading_cost),
                 "portfolio_simple_return": float(net_simple_return),
