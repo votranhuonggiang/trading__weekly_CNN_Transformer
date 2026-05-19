@@ -164,3 +164,115 @@ def _assign_split_label(rebalance_date: pd.Timestamp) -> str:
     if rebalance_date <= pd.Timestamp("2023-12-31"):
         return "validation"
     return "test"
+
+
+def build_v2_buy_list(prediction_table: pd.DataFrame, top_k: int = 5) -> pd.DataFrame:
+    """
+    Build weekly buy-only top-K portfolio for v2 strategy.
+
+    Every week, select top-K stocks by P(Buy) score.
+    No position carryover—all held stocks are exited on Friday.
+
+    Args:
+        prediction_table: DataFrame with columns:
+            - rebalance_date: Friday of the week
+            - ticker: stock symbol
+            - p_avoid, p_hold, p_buy: predicted probabilities
+            - split: train/val/test
+        top_k: Number of stocks to buy (default 5)
+
+    Returns:
+        DataFrame with columns:
+            - rebalance_date
+            - ticker
+            - rank: rank by p_buy descending
+            - p_buy
+            - split
+    """
+    test_preds = prediction_table[prediction_table['split'] == 'test'].copy()
+
+    test_preds['score'] = test_preds['p_buy']
+
+    test_preds['rank'] = (
+        test_preds.groupby('rebalance_date')['score']
+        .rank(method='first', ascending=False)
+    )
+
+    top_list = test_preds[test_preds['rank'] <= top_k].copy()
+
+    return top_list[['rebalance_date', 'ticker', 'rank', 'score', 'split']]
+
+
+def calculate_v2_weekly_returns(
+    top_list: pd.DataFrame,
+    metadata: pd.DataFrame,
+    vnindex_data: pd.DataFrame = None,
+) -> pd.DataFrame:
+    """
+    Calculate v2 portfolio weekly returns: buy on entry price,
+    sell on exit price (both at week rebalance close for simplicity).
+
+    Args:
+        top_list: DataFrame from build_v2_buy_list()
+        metadata: Model dataset metadata with next_week_return
+        vnindex_data: Optional VNINDEX returns for comparison
+
+    Returns:
+        DataFrame with columns:
+            - rebalance_date
+            - portfolio_simple_return (equal-weighted avg of top-k)
+            - portfolio_gross_return (before costs)
+            - vnindex_simple_return (if provided)
+            - split
+    """
+    merged = top_list.merge(
+        metadata[['rebalance_date', 'ticker', 'next_week_return', 'split']],
+        on=['rebalance_date', 'ticker', 'split'],
+        how='left'
+    )
+
+    weekly_returns = merged.groupby('rebalance_date').agg({
+        'next_week_return': 'mean',
+    }).reset_index()
+
+    weekly_returns.rename(columns={'next_week_return': 'portfolio_simple_return'}, inplace=True)
+
+    if vnindex_data is not None:
+        vnindex_data = vnindex_data[['rebalance_date', 'vnindex_simple_return']].copy()
+        vnindex_data['rebalance_date'] = pd.to_datetime(vnindex_data['rebalance_date']).dt.normalize()
+        weekly_returns = weekly_returns.merge(vnindex_data, on='rebalance_date', how='left')
+
+    return weekly_returns
+
+
+def apply_transaction_costs_v2(
+    weekly_returns: pd.DataFrame,
+    fee_rate: float = 0.002,
+    top_k: int = 5,
+) -> pd.DataFrame:
+    """
+    Apply transaction costs to v2 returns.
+
+    V2 has full turnover every week (exit all, buy top-k fresh).
+    Turnover ratio = (k + k) / k = 2.0 (100% in + 100% out of each slot)
+
+    Args:
+        weekly_returns: DataFrame from calculate_v2_weekly_returns()
+        fee_rate: Transaction cost as fraction (e.g., 0.002 = 0.2%)
+        top_k: Portfolio size (for turnover calculation)
+
+    Returns:
+        DataFrame with added columns:
+            - turnover_ratio (fixed at 2.0 for v2)
+            - trading_cost
+            - portfolio_net_return (after costs)
+    """
+    result = weekly_returns.copy()
+
+    result['turnover_ratio'] = 2.0
+    result['trading_cost'] = fee_rate * result['turnover_ratio']
+    result['portfolio_net_return'] = (
+        result['portfolio_simple_return'] - result['trading_cost']
+    )
+
+    return result
