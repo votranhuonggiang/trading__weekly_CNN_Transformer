@@ -191,16 +191,14 @@ def build_v2_buy_list(prediction_table: pd.DataFrame, top_k: int = 5) -> pd.Data
     """
     test_preds = prediction_table[prediction_table['split'] == 'test'].copy()
 
-    test_preds['score'] = test_preds['p_buy']
-
     test_preds['rank'] = (
-        test_preds.groupby('rebalance_date')['score']
+        test_preds.groupby('rebalance_date')['p_buy']
         .rank(method='first', ascending=False)
     )
 
     top_list = test_preds[test_preds['rank'] <= top_k].copy()
 
-    return top_list[['rebalance_date', 'ticker', 'rank', 'score', 'split']]
+    return top_list[['rebalance_date', 'ticker', 'rank', 'p_buy', 'split']]
 
 
 def calculate_v2_weekly_returns(
@@ -225,11 +223,19 @@ def calculate_v2_weekly_returns(
             - vnindex_simple_return (if provided)
             - split
     """
+    top_list = top_list.copy()
+    top_list['rebalance_date'] = pd.to_datetime(top_list['rebalance_date']).dt.normalize()
+    metadata = metadata.copy()
+    metadata['rebalance_date'] = pd.to_datetime(metadata['rebalance_date']).dt.normalize()
+
     merged = top_list.merge(
         metadata[['rebalance_date', 'ticker', 'next_week_return', 'split']],
         on=['rebalance_date', 'ticker', 'split'],
         how='left'
     )
+
+    if merged['next_week_return'].isna().all():
+        raise ValueError("No matching returns data in metadata for top_list tickers/dates")
 
     weekly_returns = merged.groupby('rebalance_date').agg({
         'next_week_return': 'mean',
@@ -248,7 +254,6 @@ def calculate_v2_weekly_returns(
 def apply_transaction_costs_v2(
     weekly_returns: pd.DataFrame,
     fee_rate: float = 0.002,
-    top_k: int = 5,
 ) -> pd.DataFrame:
     """
     Apply transaction costs to v2 returns.
@@ -259,7 +264,6 @@ def apply_transaction_costs_v2(
     Args:
         weekly_returns: DataFrame from calculate_v2_weekly_returns()
         fee_rate: Transaction cost as fraction (e.g., 0.002 = 0.2%)
-        top_k: Portfolio size (for turnover calculation)
 
     Returns:
         DataFrame with added columns:
