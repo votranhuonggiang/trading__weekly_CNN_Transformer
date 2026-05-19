@@ -65,9 +65,12 @@ def build_weekly_labels(feature_df: pd.DataFrame) -> pd.DataFrame:
         method="first",
         pct=True,
     )
-    eligible["label"] = 0
-    eligible.loc[eligible["return_rank_pct"] > 0.70, "label"] = 1
-    eligible["label_name"] = eligible["label"].map({0: "NotBuy", 1: "Buy"})
+    # 3-class target:
+    # bottom 30% -> Avoid (0), middle 40% -> Hold (1), top 30% -> Buy (2)
+    eligible["label"] = 1
+    eligible.loc[eligible["return_rank_pct"] <= 0.30, "label"] = 0
+    eligible.loc[eligible["return_rank_pct"] > 0.70, "label"] = 2
+    eligible["label_name"] = eligible["label"].map({0: "Avoid", 1: "Hold", 2: "Buy"})
 
     keep_cols = [
         "rebalance_date",
