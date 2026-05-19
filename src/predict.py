@@ -272,7 +272,7 @@ def apply_transaction_costs_v2(
     result['turnover_ratio'] = 2.0
     result['trading_cost'] = fee_rate * result['turnover_ratio']
     result['portfolio_net_return'] = (
-        result['portfolio_simple_return'] - result['trading_cost']
+        (1 + result['portfolio_simple_return']) * (1 - result['trading_cost']) - 1
     )
 
     return result
