@@ -36,3 +36,23 @@ class Settings:
 
 
 settings = Settings()
+
+
+class V2Configuration:
+    """Buy-only v2 strategy configuration."""
+    TOP_K = 5  # Buy top 5 stocks only
+    REBALANCE_FREQ = 'W'  # Weekly
+    POSITION_CARRYOVER = False  # Exit all on Friday, buy fresh Monday
+    ENTRY_PRICE_TYPE = 'close'  # Use Friday close as entry
+    EXIT_PRICE_TYPE = 'close'   # Use Friday close next week as exit
+    TRANSACTION_COST_RATES = [0.0, 0.0015, 0.002, 0.0025, 0.0035]
+    EQUAL_WEIGHT = True
+    
+    @staticmethod
+    def describe():
+        return (
+            f"V2 Buy-Only Strategy: "
+            f"Top {V2Configuration.TOP_K} stocks, "
+            f"weekly rebalance, "
+            f"full position reset each week"
+        )
