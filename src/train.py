@@ -101,6 +101,8 @@ def evaluate_model(
 
     y_true = np.concatenate(targets)
     y_pred = np.concatenate(preds)
+    num_classes = int(max(y_true.max(), y_pred.max())) + 1
+    target_names = ["NotBuy", "Buy"] if num_classes == 2 else ["Avoid", "Hold", "Buy"]
     return {
         "accuracy": float(accuracy_score(y_true, y_pred)),
         "macro_f1": float(f1_score(y_true, y_pred, average="macro")),
@@ -109,7 +111,7 @@ def evaluate_model(
         "report": classification_report(
             y_true,
             y_pred,
-            target_names=["Avoid", "Hold", "Buy"],
+            target_names=target_names,
             digits=4,
             zero_division=0,
         ),

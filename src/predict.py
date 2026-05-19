@@ -40,22 +40,28 @@ def build_weekly_prediction_table(
 ) -> pd.DataFrame:
     if len(metadata) != len(probabilities):
         raise ValueError("Metadata rows and probability rows must match.")
-    if probabilities.shape[1] != 3:
-        raise ValueError(f"Expected three-class probabilities with shape [n, 3], got {probabilities.shape}.")
+    if probabilities.shape[1] not in (2, 3):
+        raise ValueError(f"Expected two-class or three-class probabilities with shape [n, 2|3], got {probabilities.shape}.")
 
     table = metadata.copy().reset_index(drop=True)
-    table["p_avoid"] = probabilities[:, 0]
-    table["p_hold"] = probabilities[:, 1]
-    table["p_buy"] = probabilities[:, 2]
-    table["score"] = table["p_buy"] - table["p_avoid"]
-    table["predicted_label"] = np.select(
-        [
-            (table["p_avoid"] >= table["p_hold"]) & (table["p_avoid"] >= table["p_buy"]),
-            (table["p_hold"] >= table["p_avoid"]) & (table["p_hold"] >= table["p_buy"]),
-        ],
-        ["Avoid", "Hold"],
-        default="Buy",
-    )
+    if probabilities.shape[1] == 2:
+        table["p_notbuy"] = probabilities[:, 0]
+        table["p_buy"] = probabilities[:, 1]
+        table["score"] = table["p_buy"]
+        table["predicted_label"] = np.where(table["p_buy"] >= table["p_notbuy"], "Buy", "NotBuy")
+    else:
+        table["p_avoid"] = probabilities[:, 0]
+        table["p_hold"] = probabilities[:, 1]
+        table["p_buy"] = probabilities[:, 2]
+        table["score"] = table["p_buy"] - table["p_avoid"]
+        table["predicted_label"] = np.select(
+            [
+                (table["p_avoid"] >= table["p_hold"]) & (table["p_avoid"] >= table["p_buy"]),
+                (table["p_hold"] >= table["p_avoid"]) & (table["p_hold"] >= table["p_buy"]),
+            ],
+            ["Avoid", "Hold"],
+            default="Buy",
+        )
     table["rank"] = table.groupby("rebalance_date")["score"].rank(method="first", ascending=False).astype(int)
     return table.sort_values(["rebalance_date", "rank", "ticker"]).reset_index(drop=True)
 
