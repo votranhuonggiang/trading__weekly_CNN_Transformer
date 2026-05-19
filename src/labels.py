@@ -57,7 +57,8 @@ def build_weekly_labels(feature_df: pd.DataFrame) -> pd.DataFrame:
         .rename(columns={"date": "next_rebalance_date", "close": "next_close"})
     )
     snap = snap.merge(next_close_lookup, on=["ticker", "next_rebalance_date"], how="left")
-    snap["next_week_return"] = np.log(snap["next_close"] / snap["close"])
+    # v2 uses simple next-week return for target/reporting consistency.
+    snap["next_week_return"] = (snap["next_close"] / snap["close"]) - 1.0
     snap["eligible"] = snap["eligible"] & snap["next_week_return"].notna()
 
     eligible = snap[snap["eligible"]].copy()

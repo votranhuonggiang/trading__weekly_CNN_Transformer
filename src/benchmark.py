@@ -44,10 +44,10 @@ def build_vnindex_comparison(
         on="next_rebalance_date",
         how="left",
     )
-    benchmark["vnindex_weekly_return"] = np.log(
+    benchmark["vnindex_weekly_return"] = (
         benchmark["vnindex_next_close"] / benchmark["vnindex_close"]
-    )
-    benchmark["vnindex_cumulative"] = np.exp(benchmark["vnindex_weekly_return"].fillna(0.0).cumsum())
+    ) - 1.0
+    benchmark["vnindex_cumulative"] = (1.0 + benchmark["vnindex_weekly_return"].fillna(0.0)).cumprod()
 
     label_perf = (
         labels.groupby(["rebalance_date", "label_name"], as_index=False)["next_week_return"]
@@ -60,7 +60,7 @@ def build_vnindex_comparison(
     canonical_order = ["NotBuy", "Buy", "Avoid", "Hold"]
     label_cols = [col for col in canonical_order if col in comparison.columns]
     for col in label_cols:
-        comparison[f"{col}_cumulative"] = np.exp(comparison[col].fillna(0.0).cumsum())
+        comparison[f"{col}_cumulative"] = (1.0 + comparison[col].fillna(0.0)).cumprod()
 
     settings.outputs_tables_dir.mkdir(parents=True, exist_ok=True)
     settings.outputs_figures_dir.mkdir(parents=True, exist_ok=True)
@@ -146,7 +146,7 @@ def _plot_label_distribution(labels: pd.DataFrame, output_path) -> None:
         patch.set_facecolor(color)
 
     ax.set_title("Next-Week Return Distribution by Label")
-    ax.set_ylabel("Next-Week Log Return")
+    ax.set_ylabel("Next-Week Simple Return")
     ax.set_xlabel("Label")
     fig.tight_layout()
     fig.savefig(output_path, dpi=180)

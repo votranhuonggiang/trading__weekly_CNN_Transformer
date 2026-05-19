@@ -53,7 +53,8 @@ def build_weekly_prediction_table(
         table["p_avoid"] = probabilities[:, 0]
         table["p_hold"] = probabilities[:, 1]
         table["p_buy"] = probabilities[:, 2]
-        table["score"] = table["p_buy"] - table["p_avoid"]
+        # v2 weekly buy-list ranking uses P(Buy) directly.
+        table["score"] = table["p_buy"]
         table["predicted_label"] = np.select(
             [
                 (table["p_avoid"] >= table["p_hold"]) & (table["p_avoid"] >= table["p_buy"]),
@@ -111,20 +112,14 @@ def build_portfolio_performance(
 ) -> pd.DataFrame:
     portfolio = top_k_portfolio.copy()
     portfolio["rebalance_date"] = pd.to_datetime(portfolio["rebalance_date"])
-    portfolio["next_week_simple_return"] = np.exp(portfolio["next_week_return"]) - 1.0
+    portfolio["next_week_simple_return"] = portfolio["next_week_return"]
 
     weekly_rows: list[dict[str, float | int | pd.Timestamp]] = []
-    previous_weights: dict[str, float] = {}
-
     for rebalance_date, group in portfolio.groupby("rebalance_date", sort=True):
-        current_weights = dict(zip(group["ticker"], group["portfolio_weight"]))
         gross_simple_return = float(np.sum(group["portfolio_weight"] * group["next_week_simple_return"]))
         invested_weight = float(group["portfolio_weight"].sum())
-
-        all_tickers = set(previous_weights) | set(current_weights)
-        turnover = 0.5 * sum(abs(current_weights.get(t, 0.0) - previous_weights.get(t, 0.0)) for t in all_tickers)
-        if not previous_weights:
-            turnover = invested_weight
+        # v2 full reset every week: sell all + buy all -> turnover ratio 2.0.
+        turnover = 2.0 if invested_weight > 0 else 0.0
 
         trading_cost = fee_rate * turnover
         net_simple_return = (1.0 - trading_cost) * (1.0 + gross_simple_return) - 1.0
@@ -142,8 +137,6 @@ def build_portfolio_performance(
                 "num_holdings": int(len(group)),
             }
         )
-        previous_weights = current_weights
-
     weekly = pd.DataFrame(weekly_rows)
     weekly["portfolio_cumulative"] = (1.0 + weekly["portfolio_simple_return"]).cumprod()
     weekly["split"] = weekly["rebalance_date"].apply(_assign_split_label)
@@ -151,7 +144,7 @@ def build_portfolio_performance(
     if vnindex_comparison is not None:
         benchmark = vnindex_comparison.copy()
         benchmark["rebalance_date"] = pd.to_datetime(benchmark["rebalance_date"])
-        benchmark["vnindex_simple_return"] = np.exp(benchmark["vnindex_weekly_return"]) - 1.0
+        benchmark["vnindex_simple_return"] = benchmark["vnindex_weekly_return"]
         cols = ["rebalance_date", "vnindex_weekly_return", "vnindex_simple_return", "vnindex_cumulative"]
         weekly = weekly.merge(benchmark[cols], on="rebalance_date", how="left")
 
