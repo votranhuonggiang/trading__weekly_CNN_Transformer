@@ -657,7 +657,16 @@ Rebalance date: `2026-05-15` (next rebalance: `2026-05-19`)
 - Window: `2024-01-01` onward
 - Source: `outputs/predictions/only_buy/weekly_top_5_v2_full_reset_performance.csv`
 
-| strategy                     |   weeks |   total_return |   annualized_return |   annualized_volatility |   max_drawdown |   sharpe |   sortino |   calmar |   win_rate |   avg_weekly_return |   std_weekly_return |
-|:-----------------------------|--------:|---------------:|--------------------:|------------------------:|---------------:|---------:|----------:|---------:|-----------:|--------------------:|--------------------:|
-| Top 5 Weekly Reset Portfolio |     122 |       0.85814  |            0.302234 |                0.249893 |      -0.26904  |  1.18142 |   2.37073 |  1.12338 |   0.532787 |            0.005677 |            0.034654 |
-| VNINDEX                      |     122 |       0.663465 |            0.242232 |                0.173034 |      -0.123659 |  1.34273 |   1.69302 |  1.95887 |   0.598361 |            0.004468 |            0.023995 |
+| metric                |   Top 5 Weekly Reset Portfolio |    VNINDEX |
+|:----------------------|-------------------------------:|-----------:|
+| weeks                 |                     122        | 122        |
+| total_return          |                       0.85814  |   0.663465 |
+| annualized_return     |                       0.302234 |   0.242232 |
+| annualized_volatility |                       0.249893 |   0.173034 |
+| max_drawdown          |                      -0.26904  |  -0.123659 |
+| sharpe                |                       1.18142  |   1.34273  |
+| sortino               |                       2.37073  |   1.69302  |
+| calmar                |                       1.12338  |   1.95887  |
+| win_rate              |                       0.532787 |   0.598361 |
+| avg_weekly_return     |                       0.005677 |   0.004468 |
+| std_weekly_return     |                       0.034654 |   0.023995 |
