@@ -9,16 +9,6 @@
 ## Test Window
 - Start: `2024-01-01`
 - Weeks: `122`
-
-## Transaction-Cost Sensitivity (Top-5 Weekly Reset)
-
-| fee_rate | portfolio_total_return_test | portfolio_sharpe_test | vnindex_sharpe_test | avg_turnover_test | avg_trading_cost_test |
-|---:|---:|---:|---:|---:|---:|
-| 0.0000 | 1.429971 | 1.642753 | 1.342727 | 0.878689 | 0.000000 |
-| 0.0015 | 1.068803 | 1.365884 | 1.342727 | 0.878689 | 0.001318 |
-| 0.0025 | 0.858140 | 1.181421 | 1.342727 | 0.878689 | 0.002197 |
-| 0.0035 | 0.668766 | 0.997063 | 1.342727 | 0.878689 | 0.003075 |
-
 ## Base Fee Scenario (`fee_rate = 0.0025`)
 - Portfolio total return (test): `0.858140`
 - VNINDEX total return (test): `0.663465`
@@ -656,3 +646,18 @@ Rebalance date: `2026-05-15` (next rebalance: `2026-05-19`)
 | 2024-01-05       | 2024-01-12            | TDG      |      3 |                0.2 | 0.358397 | 0.187739 |           0        |
 | 2024-01-05       | 2024-01-12            | FCM      |      4 |                0.2 | 0.375081 | 0.181214 |          -0.045985 |
 | 2024-01-05       | 2024-01-12            | TTF      |      5 |                0.2 | 0.434628 | 0.179415 |          -0.011173 |
+
+## Test Performance Plot
+- Source: `outputs/predictions/only_buy/weekly_top_5_v2_full_reset_performance.csv`
+- Method: cumulative test portfolio and VNINDEX from weekly simple returns
+
+![Top 5 Weekly Reset Portfolio vs VNINDEX - Test Period Only](outputs/figures/only_buy_test_cumulative_vs_vnindex.png)
+
+## Performance vs VNINDEX (Test Period)
+- Window: `2024-01-01` onward
+- Source: `outputs/predictions/only_buy/weekly_top_5_v2_full_reset_performance.csv`
+
+| strategy                     |   weeks |   total_return |   annualized_return |   annualized_volatility |   max_drawdown |   sharpe |   sortino |   calmar |   win_rate |   avg_weekly_return |   std_weekly_return |
+|:-----------------------------|--------:|---------------:|--------------------:|------------------------:|---------------:|---------:|----------:|---------:|-----------:|--------------------:|--------------------:|
+| Top 5 Weekly Reset Portfolio |     122 |       0.85814  |            0.302234 |                0.249893 |      -0.26904  |  1.18142 |   2.37073 |  1.12338 |   0.532787 |            0.005677 |            0.034654 |
+| VNINDEX                      |     122 |       0.663465 |            0.242232 |                0.173034 |      -0.123659 |  1.34273 |   1.69302 |  1.95887 |   0.598361 |            0.004468 |            0.023995 |
