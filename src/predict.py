@@ -45,16 +45,15 @@ def build_weekly_prediction_table(
 
     table = metadata.copy().reset_index(drop=True)
     if probabilities.shape[1] == 2:
-        table["p_notbuy"] = probabilities[:, 0]
+        table["p_avoid"] = probabilities[:, 0]
         table["p_buy"] = probabilities[:, 1]
-        table["score"] = table["p_buy"]
-        table["predicted_label"] = np.where(table["p_buy"] >= table["p_notbuy"], "Buy", "NotBuy")
+        table["score"] = table["p_buy"] - table["p_avoid"]
+        table["predicted_label"] = np.where(table["p_buy"] >= table["p_avoid"], "Buy", "Avoid")
     else:
         table["p_avoid"] = probabilities[:, 0]
         table["p_hold"] = probabilities[:, 1]
         table["p_buy"] = probabilities[:, 2]
-        # v2 weekly buy-list ranking uses P(Buy) directly.
-        table["score"] = table["p_buy"]
+        table["score"] = table["p_buy"] - table["p_avoid"]
         table["predicted_label"] = np.select(
             [
                 (table["p_avoid"] >= table["p_hold"]) & (table["p_avoid"] >= table["p_buy"]),
@@ -163,7 +162,7 @@ def build_v2_buy_list(prediction_table: pd.DataFrame, top_k: int = 5) -> pd.Data
     """
     Build weekly buy-only top-K portfolio for v2 strategy.
 
-    Every week, select top-K stocks by P(Buy) score.
+    Every week, select top-K stocks by score.
     No position carryover—all held stocks are exited on Friday.
 
     Args:
@@ -178,20 +177,21 @@ def build_v2_buy_list(prediction_table: pd.DataFrame, top_k: int = 5) -> pd.Data
         DataFrame with columns:
             - rebalance_date
             - ticker
-            - rank: rank by p_buy descending
+            - rank: rank by score descending
             - p_buy
+            - score
             - split
     """
     test_preds = prediction_table[prediction_table['split'] == 'test'].copy()
 
     test_preds['rank'] = (
-        test_preds.groupby('rebalance_date')['p_buy']
+        test_preds.groupby('rebalance_date')['score']
         .rank(method='first', ascending=False)
     )
 
     top_list = test_preds[test_preds['rank'] <= top_k].copy()
 
-    return top_list[['rebalance_date', 'ticker', 'rank', 'p_buy', 'split']]
+    return top_list[['rebalance_date', 'ticker', 'rank', 'p_buy', 'score', 'split']]
 
 
 def calculate_v2_weekly_returns(

@@ -57,7 +57,7 @@ def build_vnindex_comparison(
     )
 
     comparison = benchmark.merge(label_perf, on="rebalance_date", how="left")
-    canonical_order = ["NotBuy", "Buy", "Avoid", "Hold"]
+    canonical_order = ["Buy", "Avoid", "Hold", "NotBuy"]
     label_cols = [col for col in canonical_order if col in comparison.columns]
     for col in label_cols:
         comparison[f"{col}_cumulative"] = (1.0 + comparison[col].fillna(0.0)).cumprod()
@@ -94,19 +94,19 @@ def _plot_cumulative_comparison(comparison: pd.DataFrame, output_path) -> None:
     )
 
     color_map = {
-        "NotBuy_cumulative": "#7f8c8d",
         "Buy_cumulative": "#117a65",
         "Avoid_cumulative": "#b03a2e",
         "Hold_cumulative": "#95a5a6",
+        "NotBuy_cumulative": "#7f8c8d",
     }
     label_map = {
-        "NotBuy_cumulative": "NotBuy Group (look-ahead)",
         "Buy_cumulative": "Buy Group (look-ahead)",
         "Avoid_cumulative": "Avoid Group (look-ahead)",
         "Hold_cumulative": "Hold Group (look-ahead)",
+        "NotBuy_cumulative": "NotBuy Group (look-ahead)",
     }
 
-    for col in ["NotBuy_cumulative", "Buy_cumulative", "Avoid_cumulative", "Hold_cumulative"]:
+    for col in ["Buy_cumulative", "Avoid_cumulative", "Hold_cumulative", "NotBuy_cumulative"]:
         if col in comparison.columns:
             ax.plot(
                 comparison["rebalance_date"],
@@ -137,11 +137,17 @@ def _plot_label_distribution(labels: pd.DataFrame, output_path) -> None:
     plt.style.use("seaborn-v0_8-whitegrid")
     fig, ax = plt.subplots(figsize=(12, 7))
 
-    order = [name for name in ["NotBuy", "Buy", "Avoid", "Hold"] if name in labels["label_name"].unique()]
+    order = [name for name in ["Buy", "Avoid", "Hold", "NotBuy"] if name in labels["label_name"].unique()]
     data = [labels.loc[labels["label_name"] == name, "next_week_return"].dropna().values for name in order]
     ax.boxplot(data, labels=order, showfliers=False, patch_artist=True)
 
-    colors = ["#d5dbdb", "#a3e4d7", "#f5b7b1", "#d5dbdb"]
+    palette = {
+        "Buy": "#a3e4d7",
+        "Avoid": "#f5b7b1",
+        "Hold": "#d5dbdb",
+        "NotBuy": "#d5dbdb",
+    }
+    colors = [palette[name] for name in order]
     for patch, color in zip(ax.artists, colors):
         patch.set_facecolor(color)
 
