@@ -1,9 +1,8 @@
 {
-  "profile_name": "v2_base_cross_sectional_liquidity",
+  "profile_name": "v2_base_only",
   "label_mode": "v2_buy_top30_hold_mid40_avoid_bottom30",
   "feature_packs": [
-    "base",
-    "cross_sectional_liquidity"
+    "base"
   ],
   "feature_columns": [
     "open",
@@ -42,10 +41,7 @@
     "ma_gap_5",
     "ma_gap_20",
     "ma_gap_60",
-    "rsi_14",
-    "cs_rank_volatility_20d",
-    "cs_rank_volume_spike",
-    "cs_rank_avg_trading_value_20d"
+    "rsi_14"
   ],
-  "num_features": 40
+  "num_features": 37
 }

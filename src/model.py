@@ -20,6 +20,23 @@ class PositionalEncoding(nn.Module):
         return x + self.pe[:, : x.size(1)]
 
 
+class AttentionPooling(nn.Module):
+    def __init__(self, d_model: int) -> None:
+        super().__init__()
+        hidden_dim = max(32, d_model // 2)
+        self.score = nn.Sequential(
+            nn.LayerNorm(d_model),
+            nn.Linear(d_model, hidden_dim),
+            nn.Tanh(),
+            nn.Linear(hidden_dim, 1),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        attn_logits = self.score(x).squeeze(-1)
+        attn_weights = torch.softmax(attn_logits, dim=1)
+        return torch.sum(x * attn_weights.unsqueeze(-1), dim=1)
+
+
 class CNNTransformerClassifier(nn.Module):
     def __init__(
         self,
@@ -53,6 +70,8 @@ class CNNTransformerClassifier(nn.Module):
             batch_first=True,
         )
         self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+        # Learn which timesteps matter instead of flattening the whole lookback uniformly.
+        self.pool = AttentionPooling(d_model=d_model)
         self.head = nn.Sequential(
             nn.LayerNorm(d_model),
             nn.Linear(d_model, 128),
@@ -67,5 +86,5 @@ class CNNTransformerClassifier(nn.Module):
         x = x.transpose(1, 2)
         x = self.positional_encoding(x)
         x = self.encoder(x)
-        x = x.mean(dim=1)
+        x = self.pool(x)
         return self.head(x)
