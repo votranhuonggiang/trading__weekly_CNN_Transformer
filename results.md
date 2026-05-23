@@ -36,6 +36,12 @@ Rebalance date: `2026-05-15` (next rebalance: `2026-05-20`)
 | 4 | ADS | 0.2 | 0.364975 | 0.197352 | -0.020856 |
 | 5 | TSA | 0.2 | 0.348976 | 0.186789 | 0.000000 |
 
+## Test Performance Plot
+- Source: `outputs/predictions/model_exp_02_multiscale_cnn_base_only_predictions/weekly_top_5_model_exp_02_multiscale_cnn_base_only_full_reset_performance.csv`
+- Method: cumulative test portfolio and VNINDEX from weekly simple returns
+
+![Top 5 Weekly Reset Portfolio vs VNINDEX - Test Period Only](outputs/figures/only_buy_test_cumulative_vs_vnindex.png)
+
 ## Notes
 - This is the selected model candidate from the model phase: `model_exp_02_multiscale_cnn_base_only`.
 - Features are `base` only.
