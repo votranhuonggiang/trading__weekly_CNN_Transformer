@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -9,6 +10,23 @@ import pandas as pd
 MAX_SHARD_BYTES = 95 * 1024 * 1024
 
 
+def clear_colab_artifacts(out_dir: Path) -> None:
+    for pattern in [
+        "X_train_part*.npy",
+        "X_val_part*.npy",
+        "X_test_part*.npy",
+        "y_train.npy",
+        "y_val.npy",
+        "y_test.npy",
+        "feature_mean.npy",
+        "feature_std.npy",
+        "model_dataset_metadata.parquet",
+        "feature_profile.json",
+    ]:
+        for path in out_dir.glob(pattern):
+            path.unlink()
+
+
 def main() -> None:
     source = Path("data/processed/model_dataset_splits.npz")
     if not source.exists():
@@ -16,6 +34,7 @@ def main() -> None:
 
     out_dir = Path("data/colab")
     out_dir.mkdir(parents=True, exist_ok=True)
+    clear_colab_artifacts(out_dir)
 
     arrays = np.load(source)
 
@@ -33,6 +52,9 @@ def main() -> None:
     metadata_path = Path("data/processed/model_dataset_metadata.parquet")
     if metadata_path.exists():
         pd.read_parquet(metadata_path).to_parquet(out_dir / "model_dataset_metadata.parquet", index=False)
+    feature_profile_path = Path("data/processed/feature_profile.json")
+    if feature_profile_path.exists():
+        shutil.copy2(feature_profile_path, out_dir / "feature_profile.json")
     print(f"Prepared Colab shards in {out_dir}")
 
 

@@ -20,6 +20,41 @@ class PositionalEncoding(nn.Module):
         return x + self.pe[:, : x.size(1)]
 
 
+class MultiScaleCNNStem(nn.Module):
+    def __init__(
+        self,
+        num_features: int,
+        conv_channels: int,
+        d_model: int,
+        dropout: float,
+        kernel_sizes: tuple[int, ...] = (3, 5, 9),
+    ) -> None:
+        super().__init__()
+        self.branches = nn.ModuleList(
+            [
+                nn.Sequential(
+                    nn.Conv1d(num_features, conv_channels, kernel_size=kernel_size, padding=kernel_size // 2),
+                    nn.GELU(),
+                    nn.Dropout(dropout),
+                )
+                for kernel_size in kernel_sizes
+            ]
+        )
+        merged_channels = conv_channels * len(kernel_sizes)
+        self.projection = nn.Sequential(
+            nn.Conv1d(merged_channels, d_model, kernel_size=1),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Conv1d(d_model, d_model, kernel_size=3, padding=1),
+            nn.GELU(),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        branch_outputs = [branch(x) for branch in self.branches]
+        x = torch.cat(branch_outputs, dim=1)
+        return self.projection(x)
+
+
 class CNNTransformerClassifier(nn.Module):
     def __init__(
         self,
@@ -35,13 +70,13 @@ class CNNTransformerClassifier(nn.Module):
     ) -> None:
         super().__init__()
 
-        padding = kernel_size // 2
-        self.conv = nn.Sequential(
-            nn.Conv1d(num_features, conv_channels, kernel_size=kernel_size, padding=padding),
-            nn.GELU(),
-            nn.Dropout(dropout),
-            nn.Conv1d(conv_channels, d_model, kernel_size=kernel_size, padding=padding),
-            nn.GELU(),
+        # Candidate 02 isolates the CNN change: use a multi-scale stem, keep
+        # the transformer depth and mean pooling identical to the baseline head.
+        self.conv = MultiScaleCNNStem(
+            num_features=num_features,
+            conv_channels=conv_channels,
+            d_model=d_model,
+            dropout=dropout,
         )
         self.positional_encoding = PositionalEncoding(d_model=d_model, max_len=256)
         encoder_layer = nn.TransformerEncoderLayer(

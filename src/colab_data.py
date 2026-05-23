@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import numpy as np
@@ -21,3 +22,12 @@ def load_sharded_arrays(base_dir: str | Path = "data/colab") -> dict[str, np.nda
     arrays["feature_mean"] = np.load(base_dir / "feature_mean.npy").astype(np.float32)
     arrays["feature_std"] = np.load(base_dir / "feature_std.npy").astype(np.float32)
     return arrays
+
+
+def load_feature_profile(base_dir: str | Path = "data/colab") -> dict:
+    base_dir = Path(base_dir)
+    profile_path = base_dir / "feature_profile.json"
+    if not profile_path.exists():
+        raise FileNotFoundError(f"Missing feature profile: {profile_path}")
+    with profile_path.open("r", encoding="utf-8") as fp:
+        return json.load(fp)
